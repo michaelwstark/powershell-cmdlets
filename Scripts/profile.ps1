@@ -16,5 +16,5 @@ ForEach ($Drive in $Drives)
 # Example
 # $WebPaymentsFrontEndRepoFolderName = WebPaymentsFrontEnd
 
-$ProfileScriptPath = Join-Path  $ReposRoot 'ThirdPartyPayments.Library\Product\Scripts\ProfileCmdlets.ps1' 
+$ProfileScriptPath = Join-Path  $ReposRoot 'powershell-cmdlets\Scripts\ProfileCmdlets.ps1'
 . $ProfileScriptPath

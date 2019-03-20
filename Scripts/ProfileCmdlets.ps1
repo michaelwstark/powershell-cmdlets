@@ -220,6 +220,16 @@ Function Navigate-MerchantManagementService
     pushd $MerchantManagementServiceRoot
 }
 
+Function Navigate-PowershellCmdlets
+{
+    pushd $PowerShellCmdletsRoot
+}
+
+Function Navigate-DevTest
+{
+    pushd $DevTestRoot
+}
+
 Function Navigate-ThirdPartyPaymentsLibrary
 {
     pushd $ThirdPartyPaymentsLibraryRoot
@@ -254,6 +264,14 @@ Function Navigate-Root
     ElseIf ($Location.Path.StartsWith($MerchantManagementServiceRoot, "CurrentCultureIgnoreCase"))
     {
         Navigate-MerchantManagementService
+    }
+    ElseIf ($Location.Path.StartsWith($PowerShellCmdletsServiceRoot, "CurrentCultureIgnoreCase"))
+    {
+        Navigate-PowerShellCmdlets
+    }
+    ElseIf ($Location.Path.StartsWith($DevTestServiceRoot, "CurrentCultureIgnoreCase"))
+    {
+        Navigate-DevTest
     }
     ElseIf ($Location.Path.StartsWith($ThirdPartyPaymentsLibraryRoot, "CurrentCultureIgnoreCase"))
     {
@@ -292,6 +310,14 @@ Function Find-Repo
     ElseIf ($Location.Path.StartsWith($MerchantManagementServiceRoot, "CurrentCultureIgnoreCase"))
     {
         Return 'Merchant.ManagementService'
+    }
+    ElseIf ($Location.Path.StartsWith($PowerShellCmdletsRoot, "CurrentCultureIgnoreCase"))
+    {
+        Return 'powershell-cmdlets'
+    }
+    ElseIf ($Location.Path.StartsWith($DevTestRoot, "CurrentCultureIgnoreCase"))
+    {
+        Return 'DevTest'
     }
     ElseIf ($Location.Path.StartsWith($ThirdPartyPaymentsLibraryRoot, "CurrentCultureIgnoreCase"))
     {
@@ -869,6 +895,8 @@ Set-Alias HWA Navigate-WebPaymentsApp
 Set-Alias TDS Navigate-TokensDataService
 Set-Alias PayFD Navigate-PaymentFrontDoor
 Set-Alias MMS Navigate-MerchantManagementService
+Set-Alias Scripts Navigate-PowerShellCmdlets
+Set-Alias DevTest Navigate-DevTest
 Set-Alias TPP Navigate-ThirdPartyPaymentsLibrary
 Set-Alias Root Navigate-Root
 Set-Alias Product Navigate-Product
@@ -961,6 +989,14 @@ If ($ReposRoot -ne $Null)
     {
         $MerchantManagementServiceRepoFolderName = 'Merchant.ManagementService'
     }
+    If ([string]::IsNullOrWhiteSpace($PowerShellCmdletsRepoFolderName))
+    {
+        $PowerShellCmdletsRepoFolderName = 'powershell-cmdlets'
+    }
+    If ([string]::IsNullOrWhiteSpace($DevTestRepoFolderName))
+    {
+        $DevTestRepoFolderName = 'DevTest'
+    }
     If ([string]::IsNullOrWhiteSpace($ThirdPartyPaymentsRepoFolderName))
     {
         $ThirdPartyPaymentsRepoFolderName = 'ThirdPartyPayments.Library'
@@ -976,6 +1012,8 @@ If ($ReposRoot -ne $Null)
     $TokensDataServiceRoot = Join-Path $ReposRoot $TokensDataServiceRepoFolderName
     $PaymentFrontDoorRoot = Join-Path $ReposRoot $PaymentFrontDoorRepoFolderName
     $MerchantManagementServiceRoot = Join-Path $ReposRoot $MerchantManagementServiceRepoFolderName
+    $PowerShellCmdletsRoot = Join-Path $ReposRoot $PowerShellCmdletsRepoFolderName
+    $DevTestRoot = Join-Path $ReposRoot $DevTestRepoFolderName
     $ThirdPartyPaymentsLibraryRoot = Join-Path $ReposRoot $ThirdPartyPaymentsRepoFolderName
     $PoshGitRoot = Join-Path $ReposRoot $PostGitRepoFolderName
 
@@ -996,7 +1034,6 @@ If ($ReposRoot -ne $Null)
     If ($IsPoshGitCloned)
     {
         Import-Module $PoshGitModule
-        Start-SshAgent -Quiet
 
         # This is a personal preference.  I can remove and put in my profile file if desired.
         # Try it out first though.
