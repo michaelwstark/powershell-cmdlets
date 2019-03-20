@@ -1,0 +1,4 @@
+jcmsfd.account.microsoft.com
+login.windows.net
+login.live.com
+login.microsoftonline.com

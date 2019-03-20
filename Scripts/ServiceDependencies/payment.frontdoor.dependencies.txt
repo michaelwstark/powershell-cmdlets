@@ -1,0 +1,14 @@
+watchtower.cp.microsoft.com
+paymentstoreprod-centralus.documents.azure.com
+jcmsfd.account.microsoft.com
+merchant.pay.microsoft.com
+paymentsinstrumentservice.cp.microsoft.com
+connect.stripe.com
+api.stripe.com
+api.paypal.com
+wepayapi.com
+stage.wepayapi.com
+login.windows.net
+login.live.com
+login.microsoftonline.com
+ks.cp.microsoft.com

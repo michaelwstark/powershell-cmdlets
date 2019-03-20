@@ -1,0 +1,10 @@
+watchtower.cp.microsoft.com
+connect.stripe.com
+api.stripe.com
+api.paypal.com
+wepayapi.com
+stage.wepayapi.com
+merchantstoreprod-centralus.documents.azure.com
+login.windows.net
+login.live.com
+login.microsoftonline.com

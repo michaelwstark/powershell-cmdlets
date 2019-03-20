@@ -1,0 +1,9 @@
+mstark.merchant.pay.microsoft-ppe.com
+mstark.pay.microsoft-ppe.com
+mstark.wallet.microsoft-ppe.com
+merchant.pay.microsoft-ppe.com
+pay.microsoft-ppe.com
+wallet.microsoft-ppe.com
+merchant.pay.microsoft.com
+pay.microsoft.com
+wallet.microsoft.com
