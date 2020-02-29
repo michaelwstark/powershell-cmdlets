@@ -119,6 +119,25 @@ Function Build-Project
     }
 }
 
+Function Package-Project
+{
+    Param
+    (
+        [ValidateSet('', 'x86','ARM','x64', 'AnyCPU')]
+        [string]$Platform = '',
+
+        [ValidateSet('', 'Release', 'Debug')]
+        [string]$Configuration = '',
+
+        [ValidateSet('', 'Quiet', 'Minimal', 'Normal', 'Detailed', 'Diagnostic')]
+        [string]$Verbosity = '',
+
+        [string]$Project = ''
+    )
+
+    Build-Project -Target 'Package' -Platform $Platform -Configuration $Configuration -Verbosity $Verbosity -Project $Project
+}
+
 Function Clean-Project
 {
     Param
@@ -132,9 +151,7 @@ Function Clean-Project
         [ValidateSet('', 'Quiet', 'Minimal', 'Normal', 'Detailed', 'Diagnostic')]
         [string]$Verbosity = '',
 
-        [string]$Project = '',
-
-        [string]$Target = ''
+        [string]$Project = ''
     )
 
     Build-Project -Target 'Clean' -Platform $Platform -Configuration $Configuration -Verbosity $Verbosity -Project $Project
@@ -153,9 +170,7 @@ Function Rebuild-Project
         [ValidateSet('', 'Quiet', 'Minimal', 'Normal', 'Detailed', 'Diagnostic')]
         [string]$Verbosity = '',
 
-        [string]$Project = '',
-
-        [string]$Target = ''
+        [string]$Project = ''
     )
 
     Build-Project -Target 'Clean' -Platform $Platform -Configuration $Configuration -Verbosity $Verbosity -Project $Project
@@ -164,7 +179,7 @@ Function Rebuild-Project
 
 Function Purge-Repository
 {
-    git.exe clean -xfd -e node_modules -e */.vs/
+    git.exe clean -xfd -e node_modules -e */.vs/ -e **/db.lock -e **/storage.ide*
 }
 
 Function Checkout-Branch
@@ -230,6 +245,11 @@ Function Navigate-DevTest
     pushd $DevTestRoot
 }
 
+Function Navigate-Labs
+{
+    pushd $LabsRoot
+}
+
 Function Navigate-ThirdPartyPaymentsLibrary
 {
     pushd $ThirdPartyPaymentsLibraryRoot
@@ -265,13 +285,17 @@ Function Navigate-Root
     {
         Navigate-MerchantManagementService
     }
-    ElseIf ($Location.Path.StartsWith($PowerShellCmdletsServiceRoot, "CurrentCultureIgnoreCase"))
+    ElseIf ($Location.Path.StartsWith($PowerShellCmdletsRoot, "CurrentCultureIgnoreCase"))
     {
         Navigate-PowerShellCmdlets
     }
-    ElseIf ($Location.Path.StartsWith($DevTestServiceRoot, "CurrentCultureIgnoreCase"))
+    ElseIf ($Location.Path.StartsWith($DevTestRoot, "CurrentCultureIgnoreCase"))
     {
         Navigate-DevTest
+    }
+    ElseIf ($Location.Path.StartsWith($LabsRoot, "CurrentCultureIgnoreCase"))
+    {
+        Navigate-Labs
     }
     ElseIf ($Location.Path.StartsWith($ThirdPartyPaymentsLibraryRoot, "CurrentCultureIgnoreCase"))
     {
@@ -318,6 +342,10 @@ Function Find-Repo
     ElseIf ($Location.Path.StartsWith($DevTestRoot, "CurrentCultureIgnoreCase"))
     {
         Return 'DevTest'
+    }
+    ElseIf ($Location.Path.StartsWith($LabsRoot, "CurrentCultureIgnoreCase"))
+    {
+        Return 'Labs'
     }
     ElseIf ($Location.Path.StartsWith($ThirdPartyPaymentsLibraryRoot, "CurrentCultureIgnoreCase"))
     {
@@ -616,8 +644,8 @@ Function NuGet-Push
         [ValidateNotNullOrEmpty()]
         [string]$Package,
 
-        [ValidateSet('UniversalStore','Payments','PaymentsPrivate')]
-        [string]$Feed = 'PaymentsPrivate'
+        [ValidateSet('UniversalStore','Payments','PaymentsPrivate','LabServices','MSENG')]
+        [string]$Feed = 'LabServices'
     )
 
     $CurrentLocation = Get-Location
@@ -647,6 +675,14 @@ Function NuGet-Push
         'PaymentsPrivate'
         {
             $Url = 'https://microsoft.pkgs.visualstudio.com/_packaging/Payments.Private/nuget/v3/index.json'
+        }
+        'LabServices'
+        {
+            $Url = 'https://devdiv.pkgs.visualstudio.com/_packaging/azure-lab-services/nuget/v3/index.json'
+        }
+        'MSENG'
+        {
+            $Url = 'https://mseng.pkgs.visualstudio.com/_packaging/DevTestLab/nuget/v3/index.json'
         }
         Default
         {
@@ -680,18 +716,7 @@ Function NuGet-Push
 
 Function NuGet-Restore
 {
-    Navigate-Root
-
-    Try
-    {
-        Build-Project -Project ".\NuGet\PullToolset.proj" -Target Restore
-        Build-Project -Project ".\dirs.proj" -Target Restore
-    }
-    Finally
-    {
-        # Send user back to their previous location
-        popd
-    }
+    Build-Project -Target Restore
 }
 
 Function Load-Assembly
@@ -897,6 +922,7 @@ Set-Alias PayFD Navigate-PaymentFrontDoor
 Set-Alias MMS Navigate-MerchantManagementService
 Set-Alias Scripts Navigate-PowerShellCmdlets
 Set-Alias DevTest Navigate-DevTest
+Set-Alias Labs Navigate-Labs
 Set-Alias TPP Navigate-ThirdPartyPaymentsLibrary
 Set-Alias Root Navigate-Root
 Set-Alias Product Navigate-Product
@@ -907,6 +933,7 @@ Set-Alias Reload Reload-Profile
 Set-Alias Print Print-Object
 Set-Alias CR New-CodeReview
 Set-Alias PR New-PullRequest
+Set-Alias Package Package-Project
 
 #########################################################
 ## Environment Initialization
@@ -997,6 +1024,10 @@ If ($ReposRoot -ne $Null)
     {
         $DevTestRepoFolderName = 'DevTest'
     }
+    If ([string]::IsNullOrWhiteSpace($LabsRepoFolderName))
+    {
+        $LabsRepoFolderName = 'azure-lab-services'
+    }
     If ([string]::IsNullOrWhiteSpace($ThirdPartyPaymentsRepoFolderName))
     {
         $ThirdPartyPaymentsRepoFolderName = 'ThirdPartyPayments.Library'
@@ -1014,6 +1045,7 @@ If ($ReposRoot -ne $Null)
     $MerchantManagementServiceRoot = Join-Path $ReposRoot $MerchantManagementServiceRepoFolderName
     $PowerShellCmdletsRoot = Join-Path $ReposRoot $PowerShellCmdletsRepoFolderName
     $DevTestRoot = Join-Path $ReposRoot $DevTestRepoFolderName
+    $LabsRoot = Join-Path $ReposRoot $LabsRepoFolderName
     $ThirdPartyPaymentsLibraryRoot = Join-Path $ReposRoot $ThirdPartyPaymentsRepoFolderName
     $PoshGitRoot = Join-Path $ReposRoot $PostGitRepoFolderName
 
@@ -1055,7 +1087,7 @@ Else
 #########################################################
 ## Add MSBuild to the PATH
 #########################################################
-$MSBuildPath = "${Env:ProgramFiles(x86)}\Microsoft Visual Studio\2017\Enterprise\MSBuild\15.0\Bin"
+$MSBuildPath = "${Env:ProgramFiles(x86)}\Microsoft Visual Studio\2019\Enterprise\MSBuild\Current\Bin"
 If(Test-Path -LiteralPath $MSBuildPath)
 {
     # Add msbuild to the local console PATH variable
