@@ -127,7 +127,7 @@ Function Build-Project
 
     If ($Full)
     {
-        Build-Project -Target Pack -Platform $Platform -Configuration $Configuration -Verbosity $Verbosity -Project $Project
+        Build-Project -Target Package -Platform $Platform -Configuration $Configuration -Verbosity $Verbosity -Project $Project
     }
 }
 
