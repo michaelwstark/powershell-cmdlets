@@ -1088,7 +1088,13 @@ Else
 ## Add MSBuild to the PATH
 #########################################################
 $MSBuildPath = "${Env:ProgramFiles(x86)}\Microsoft Visual Studio\2019\Enterprise\MSBuild\Current\Bin"
-If(Test-Path -LiteralPath $MSBuildPath)
+
+If (-not (Test-Path -LiteralPath $MSBuildPath))
+{
+    $MSBuildPath = "${Env:ProgramFiles(x86)}\Microsoft Visual Studio\2019\Preview\MSBuild\Current\Bin"
+}
+
+If (Test-Path -LiteralPath $MSBuildPath)
 {
     # Add msbuild to the local console PATH variable
     $Env:Path = "$msbuildPath;$env:Path"
