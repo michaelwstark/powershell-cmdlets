@@ -67,6 +67,8 @@ Function Build-Project
 {
     Param
     (
+        [switch]$Full,
+
         [ValidateSet('', 'x86','ARM','x64', 'AnyCPU')]
         [string]$Platform = '',
 
@@ -106,6 +108,11 @@ Function Build-Project
         $MsBuildArgumentList += @("/v:$($Verbosity.ToLower())")
     }
 
+    If ($Full)
+    {
+        Build-Project -Target Restore -Platform $Platform -Configuration $Configuration -Verbosity $Verbosity -Project $Project
+    }
+
     If (-not [string]::IsNullOrEmpty($Target))
     {
         $MsBuildArgumentList += @("/target:$Target")
@@ -116,6 +123,11 @@ Function Build-Project
     If ($MsBuildExitCode -ne 0)
     {
         Throw "MSBuild Failed.  Exit Code: $MsBuildExitCode"
+    }
+
+    If ($Full)
+    {
+        Build-Project -Target Pack -Platform $Platform -Configuration $Configuration -Verbosity $Verbosity -Project $Project
     }
 }
 
