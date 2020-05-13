@@ -232,7 +232,7 @@ Function Prune-Branches
     Param
     (
         [ValidateSet($false, $true)]
-        [bool]$Destructive = $false
+        [switch]$Destructive = $false
     )
 
     git.exe checkout master
