@@ -227,6 +227,27 @@ Function Merge-Branch
     }
 }
 
+Function Prune-Branches
+{
+    Param
+    (
+        [ValidateSet($false, $true)]
+        [switch]$Destructive = $false
+    )
+
+    git.exe checkout master
+    git.exe fetch -p
+
+    If ($Destructive -eq $true)
+    {
+        git.exe branch --list --format "%(if:equals=[gone])%(upstream:track)%(then)%(refname:short)%(end)" | where { $_ -ne "" } | foreach { git.exe branch -D $_ }
+    }
+    Else
+    {
+        git.exe branch --list --format "%(if:equals=[gone])%(upstream:track)%(then)%(refname:short)%(end)" | where { $_ -ne "" } | foreach { git.exe branch -d $_ }
+    }
+}
+
 Function Navigate-Wallet
 {
     pushd $WalletRoot
