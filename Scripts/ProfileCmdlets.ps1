@@ -63,130 +63,25 @@ Function Test-AbsolutePath
     [System.IO.Path]::IsPathRooted($Path)
 }
 
-Function Build-Project
+Function Restore-Project
 {
-    Param
-    (
-        [switch]$Full,
-
-        [ValidateSet('', 'x86','ARM','x64', 'AnyCPU')]
-        [string]$Platform = '',
-
-        [ValidateSet('', 'Release', 'Debug')]
-        [string]$Configuration = '',
-
-        [ValidateSet('', 'Quiet', 'Minimal', 'Normal', 'Detailed', 'Diagnostic')]
-        [string]$Verbosity = '',
-
-        [string]$Project = '',
-
-        [string]$Target = ''
-    )
-
-    [string[]] $MsBuildArgumentList = @()
-
-    If (-not [string]::IsNullOrEmpty($Project))
-    {
-        # We could check to see if the project exists, but we'll let that flow to msbuild
-        $MsBuildArgumentList += @("$Project")
-    }
-
-    $MsBuildArgumentList += @("/m")
-
-    If (-not [string]::IsNullOrWhiteSpace($Configuration))
-    {
-        $MsBuildArgumentList += @("/p:Configuration=$Configuration")
-    }
-
-    If (-not [string]::IsNullOrWhiteSpace($Platform))
-    {
-        $MsBuildArgumentList += @("/p:Platform=$Platform")
-    }
-
-    If (-not [string]::IsNullOrWhiteSpace($Verbosity))
-    {
-        $MsBuildArgumentList += @("/v:$($Verbosity.ToLower())")
-    }
-
-    If ($Full)
-    {
-        Build-Project -Target Restore -Platform $Platform -Configuration $Configuration -Verbosity $Verbosity -Project $Project
-    }
-
-    If (-not [string]::IsNullOrEmpty($Target))
-    {
-        $MsBuildArgumentList += @("/target:$Target")
-    }
-
-    & msbuild.exe @MsBuildArgumentList
-    $MsBuildExitCode = $LastExitCode
-    If ($MsBuildExitCode -ne 0)
-    {
-        Throw "MSBuild Failed.  Exit Code: $MsBuildExitCode"
-    }
-
-    If ($Full)
-    {
-        Build-Project -Target Package -Platform $Platform -Configuration $Configuration -Verbosity $Verbosity -Project $Project
-    }
+    dotnet restore
 }
 
-Function Package-Project
+Function Build-Project
 {
-    Param
-    (
-        [ValidateSet('', 'x86','ARM','x64', 'AnyCPU')]
-        [string]$Platform = '',
-
-        [ValidateSet('', 'Release', 'Debug')]
-        [string]$Configuration = '',
-
-        [ValidateSet('', 'Quiet', 'Minimal', 'Normal', 'Detailed', 'Diagnostic')]
-        [string]$Verbosity = '',
-
-        [string]$Project = ''
-    )
-
-    Build-Project -Target 'Package' -Platform $Platform -Configuration $Configuration -Verbosity $Verbosity -Project $Project
+    dotnet build
 }
 
 Function Clean-Project
 {
-    Param
-    (
-        [ValidateSet('', 'x86','ARM','x64', 'AnyCPU')]
-        [string]$Platform = '',
-
-        [ValidateSet('', 'Release', 'Debug')]
-        [string]$Configuration = '',
-
-        [ValidateSet('', 'Quiet', 'Minimal', 'Normal', 'Detailed', 'Diagnostic')]
-        [string]$Verbosity = '',
-
-        [string]$Project = ''
-    )
-
-    Build-Project -Target 'Clean' -Platform $Platform -Configuration $Configuration -Verbosity $Verbosity -Project $Project
+    dotnet clean
 }
 
 Function Rebuild-Project
 {
-    Param
-    (
-        [ValidateSet('', 'x86','ARM','x64', 'AnyCPU')]
-        [string]$Platform = '',
-
-        [ValidateSet('', 'Release', 'Debug')]
-        [string]$Configuration = '',
-
-        [ValidateSet('', 'Quiet', 'Minimal', 'Normal', 'Detailed', 'Diagnostic')]
-        [string]$Verbosity = '',
-
-        [string]$Project = ''
-    )
-
-    Build-Project -Target 'Clean' -Platform $Platform -Configuration $Configuration -Verbosity $Verbosity -Project $Project
-    Build-Project -Target 'Build' -Platform $Platform -Configuration $Configuration -Verbosity $Verbosity -Project $Project
+    Clean-Project
+    Build-Project
 }
 
 Function Purge-Repository
@@ -248,34 +143,9 @@ Function Prune-Branches
     }
 }
 
-Function Navigate-Wallet
-{
-    pushd $WalletRoot
-}
-
-Function Navigate-WebPaymentFrontEnd
-{
-    pushd $WebPaymentsFrontEnd
-}
-
-Function Navigate-PaymentFrontDoor
-{
-    pushd $PaymentFrontDoorRoot
-}
-
-Function Navigate-MerchantManagementService
-{
-    pushd $MerchantManagementServiceRoot
-}
-
 Function Navigate-PowershellCmdlets
 {
     pushd $PowerShellCmdletsRoot
-}
-
-Function Navigate-DevTest
-{
-    pushd $DevTestRoot
 }
 
 Function Navigate-Labs
@@ -283,64 +153,26 @@ Function Navigate-Labs
     pushd $LabsRoot
 }
 
-Function Navigate-ThirdPartyPaymentsLibrary
+Function Navigate-Fidalgo
 {
-    pushd $ThirdPartyPaymentsLibraryRoot
-}
-
-Function Navigate-WebPaymentsApp
-{
-    pushd $WebPaymentsAppRoot
-}
-
-Function Navigate-TokensDataService
-{
-    pushd $TokensDataServiceRoot
+    pushd $FidalgoRoot
 }
 
 Function Navigate-Root
 {
     $Location = Get-Location
 
-    If ($Location.Path.StartsWith($WalletRoot, "CurrentCultureIgnoreCase"))
-    {
-        Navigate-Wallet
-    }
-    ElseIf ($Location.Path.StartsWith($WebPaymentsFrontEnd, "CurrentCultureIgnoreCase"))
-    {
-        Navigate-WebPaymentFrontEnd
-    }
-    ElseIf ($Location.Path.StartsWith($PaymentFrontDoorRoot, "CurrentCultureIgnoreCase"))
-    {
-        Navigate-PaymentFrontDoor
-    }
-    ElseIf ($Location.Path.StartsWith($MerchantManagementServiceRoot, "CurrentCultureIgnoreCase"))
-    {
-        Navigate-MerchantManagementService
-    }
-    ElseIf ($Location.Path.StartsWith($PowerShellCmdletsRoot, "CurrentCultureIgnoreCase"))
+    If ($Location.Path.StartsWith($PowerShellCmdletsRoot, "CurrentCultureIgnoreCase"))
     {
         Navigate-PowerShellCmdlets
-    }
-    ElseIf ($Location.Path.StartsWith($DevTestRoot, "CurrentCultureIgnoreCase"))
-    {
-        Navigate-DevTest
     }
     ElseIf ($Location.Path.StartsWith($LabsRoot, "CurrentCultureIgnoreCase"))
     {
         Navigate-Labs
     }
-    ElseIf ($Location.Path.StartsWith($ThirdPartyPaymentsLibraryRoot, "CurrentCultureIgnoreCase"))
+    ElseIf ($Location.Path.StartsWith($FidalgoRoot, "CurrentCultureIgnoreCase"))
     {
-        Navigate-ThirdPartyPaymentsLibrary
-    }
-    ElseIf ($Location.Path.StartsWith($WebPaymentsAppRoot, "CurrentCultureIgnoreCase"))
-    {
-        Navigate-WebPaymentsApp
-    }
-    ElseIf ($Location.Path.StartsWith($TokensDataServiceRoot, "CurrentCultureIgnoreCase"))
-    {
-        Navigate-TokensDataService
+        Navigate-Fidalgo
     }
     Else
     {
@@ -352,45 +184,17 @@ Function Find-Repo
 {
     $Location = Get-Location
 
-    If ($Location.Path.StartsWith($WalletRoot, "CurrentCultureIgnoreCase"))
-    {
-        Return 'Wallet'
-    }
-    ElseIf ($Location.Path.StartsWith($WebPaymentsFrontEnd, "CurrentCultureIgnoreCase"))
-    {
-        Return 'WebPayments.FrontEnd'
-    }
-    ElseIf ($Location.Path.StartsWith($PaymentFrontDoorRoot, "CurrentCultureIgnoreCase"))
-    {
-        Return 'Payment.FrontDoor'
-    }
-    ElseIf ($Location.Path.StartsWith($MerchantManagementServiceRoot, "CurrentCultureIgnoreCase"))
-    {
-        Return 'Merchant.ManagementService'
-    }
-    ElseIf ($Location.Path.StartsWith($PowerShellCmdletsRoot, "CurrentCultureIgnoreCase"))
+    If ($Location.Path.StartsWith($PowerShellCmdletsRoot, "CurrentCultureIgnoreCase"))
     {
         Return 'powershell-cmdlets'
-    }
-    ElseIf ($Location.Path.StartsWith($DevTestRoot, "CurrentCultureIgnoreCase"))
-    {
-        Return 'DevTest'
     }
     ElseIf ($Location.Path.StartsWith($LabsRoot, "CurrentCultureIgnoreCase"))
     {
         Return 'Labs'
     }
-    ElseIf ($Location.Path.StartsWith($ThirdPartyPaymentsLibraryRoot, "CurrentCultureIgnoreCase"))
+    ElseIf ($Location.Path.StartsWith($FidalgoRoot, "CurrentCultureIgnoreCase"))
     {
-        Return 'ThirdPartyPayments.Library'
-    }
-    ElseIf ($Location.Path.StartsWith($WebPaymentsAppRoot, "CurrentCultureIgnoreCase"))
-    {
-        Return 'Microsoft.Pay'
-    }
-    ElseIf ($Location.Path.StartsWith($TokensDataService, "CurrentCultureIgnoreCase"))
-    {
-        Return 'Tokens.DataService'
+        Return 'Fidalgo'
     }
     Else
     {
@@ -622,54 +426,6 @@ Function Add-PullRequestReviewer
     }
 }
 
-Function Deploy-Service
-{
-    Param
-    (
-        [ValidateSet('x86','ARM','x64', 'AnyCPU')]
-        [string]$Platform = 'AnyCPU',
-
-        [ValidateSet('Release', 'Debug')]
-        [string]$Configuration = 'Debug',
-
-        [switch]$SkipBuild = $False
-    )
-
-    Navigate-Root -ErrorAction Stop
-
-    Try
-    {
-        If (-not $SkipBuild)
-        {
-            Build-Project -Platform $Platform -Configuration $Configuration
-        }
-
-        $DeploymentPath = ".\bin\$Platform\$Configuration\Deployment"
-
-        If (Test-Path -LiteralPath $DeploymentPath)
-        {
-            pushd $DeploymentPath
-            & .\Deploy-AzureService.ps1 -ErrorAction SilentlyContinue
-            popd
-        }
-        Else
-        {
-            Write-Warning "Repo does not contain a deployment folder for the platform '$Platform' and configuration '$Configuration'."
-            If ($SkipBuild)
-            {
-                Write-Warning "No Build was requested.  Please verify it exists, or run again omitting the '-SkipBuild' parameter."
-            }
-        }
-    }
-    Catch
-    {
-        Write-Error "Something happened.  Figure it out -- I can't be bothered.`n$_.Exception.ToString()"
-    }
-
-    # Return the user to the previous location if Navigate-Root succeeded.
-    popd
-}
-
 Function NuGet-Push
 {
     Param
@@ -697,18 +453,6 @@ Function NuGet-Push
 
     Switch ($Feed)
     {
-        'UniversalStore'
-        {
-            $Url = 'https://microsoft.pkgs.visualstudio.com/_packaging/Universal.Store/nuget/v3/index.json'
-        }
-        'Payments'
-        {
-            $Url = 'https://microsoft.pkgs.visualstudio.com/_packaging/Payments/nuget/v3/index.json'
-        }
-        'PaymentsPrivate'
-        {
-            $Url = 'https://microsoft.pkgs.visualstudio.com/_packaging/Payments.Private/nuget/v3/index.json'
-        }
         'LabServices'
         {
             $Url = 'https://devdiv.pkgs.visualstudio.com/_packaging/azure-lab-services/nuget/v3/index.json'
@@ -724,32 +468,11 @@ Function NuGet-Push
         }
     }
 
-    # Prompt if you are trying to publish to a public feed.
-    If ($Feed -eq 'Payments')
-    {
-        $Choice = ""
-        While ($Choice -notmatch "[y|n]")
-        {
-            $Choice = read-host "Public Feed.  Do you want to continue? (Y/N)"
-        }
-
-        If ($Choice -eq 'N')
-        {
-            Write-Host 'Be more careful next time. Idiot.'
-            Return
-        }
-    }
-
     Navigate-Root
 
     & .\NuGet\NuGet.exe push "$PackageLocation" -Source "$Url" -ApiKey  VSTS
 
     popd
-}
-
-Function NuGet-Restore
-{
-    Build-Project -Target Restore
 }
 
 Function Load-Assembly
@@ -937,6 +660,7 @@ Function Reload-Profile {
 ## Aliases
 #########################################################
 
+Set-Alias Restore Restore-Project
 Set-Alias Build Build-Project
 Set-Alias Clean Clean-Project
 Set-Alias Rebuild Rebuild-Project
@@ -946,22 +670,12 @@ Set-Alias Checkout Checkout-Branch
 Set-Alias Commit Commit-Change
 Set-Alias Push Push-Repository
 Set-Alias Pull Pull-Repository
-Set-Alias Wallet Navigate-Wallet
-Set-Alias WebPay Navigate-WebPaymentFrontEnd
-Set-Alias WebPayApp Navigate-WebPaymentsApp
-Set-Alias HWA Navigate-WebPaymentsApp
-Set-Alias TDS Navigate-TokensDataService
-Set-Alias PayFD Navigate-PaymentFrontDoor
-Set-Alias MMS Navigate-MerchantManagementService
 Set-Alias Scripts Navigate-PowerShellCmdlets
-Set-Alias DevTest Navigate-DevTest
 Set-Alias Labs Navigate-Labs
-Set-Alias TPP Navigate-ThirdPartyPaymentsLibrary
+Set-Alias Fidalgo Navigate-Fidalgo
 Set-Alias Root Navigate-Root
-Set-Alias Product Navigate-Product
 Set-Alias NuGetPush NuGet-Push
 Set-Alias Deploy Deploy-Service
-Set-Alias Restore NuGet-Restore
 Set-Alias Reload Reload-Profile
 Set-Alias Print Print-Object
 Set-Alias CR New-CodeReview
@@ -973,33 +687,24 @@ Set-Alias Package Package-Project
 #########################################################
 
 #########################################################
-## Add git to the PATH
+## Test that git.exe is in the PATH.
 #########################################################
-If ($GitRoot -eq $Null)
-{
-    # Get the Drives on the Computer
-    $Drives = Get-PSDrive | Where-Object { $_.Provider.Name -eq "FileSystem" } | Sort-Object -Property Root
-
-    # Iterate Over the Drives To See Where the 'Repos' Folder is
-    ForEach ($Drive in $Drives)
-    {
-        $TestGitRoot = Join-Path $Drive.Root 'Git'
-        If (Test-Path -LiteralPath $TestGitRoot)
-        {
-            $GitRoot = $TestGitRoot
-            Break
-        }
-    }
-}
-
-If ($GitRoot -ne $Null)
-{
-    $GitPath = Join-Path $GitRoot 'cmd'
-    $env:Path = "$GitPath;$Env:Path"
+$GitAvailable = $False
+if ((Get-Command "git.exe" -ErrorAction SilentlyContinue) -eq $Null) 
+{ 
+   Write-Warning "Could not locate git.exe.  Please resolve or ensure git.exe is in your PATH."
 }
 Else
 {
-    Write-Warning 'Could not locate the root of the git binaries.  Please resolve or ensure git.exe is in your PATH.'
+    $GitAvailable = $True
+}
+
+#########################################################
+## Test that dotnet.exe is in the PATH.
+#########################################################
+if ((Get-Command "dotnet.exe" -ErrorAction SilentlyContinue) -eq $Null) 
+{ 
+   Write-Warning "Could not locate dotnet.exe.  Please resolve or ensure dotnet.exe is in your PATH."
 }
 
 #########################################################
@@ -1025,61 +730,26 @@ If ($ReposRoot -eq $Null)
 # If we found a root set our repo locations
 If ($ReposRoot -ne $Null)
 {
-    If ([string]::IsNullOrWhiteSpace($WalletRepoFolderName))
-    {
-        $WalletRepoFolderName = 'Wallet'
-    }
-    If ([string]::IsNullOrWhiteSpace($WebPaymentsFrontEndRepoFolderName))
-    {
-        $WebPaymentsFrontEndRepoFolderName = 'WebPayments.FrontEnd'
-    }
-    If ([string]::IsNullOrWhiteSpace($MicrosoftPayRepoFolderName))
-    {
-        $MicrosoftPayRepoFolderName = 'Microsoft.Pay'
-    }
-    If ([string]::IsNullOrWhiteSpace($TokensDataServiceRepoFolderName))
-    {
-        $TokensDataServiceRepoFolderName = 'Tokens.DataService'
-    }
-    If ([string]::IsNullOrWhiteSpace($PaymentFrontDoorRepoFolderName))
-    {
-        $PaymentFrontDoorRepoFolderName = 'Payment.FrontDoor'
-    }
-    If ([string]::IsNullOrWhiteSpace($MerchantManagementServiceRepoFolderName))
-    {
-        $MerchantManagementServiceRepoFolderName = 'Merchant.ManagementService'
-    }
     If ([string]::IsNullOrWhiteSpace($PowerShellCmdletsRepoFolderName))
     {
         $PowerShellCmdletsRepoFolderName = 'powershell-cmdlets'
-    }
-    If ([string]::IsNullOrWhiteSpace($DevTestRepoFolderName))
-    {
-        $DevTestRepoFolderName = 'DevTest'
     }
     If ([string]::IsNullOrWhiteSpace($LabsRepoFolderName))
     {
         $LabsRepoFolderName = 'azure-lab-services'
     }
-    If ([string]::IsNullOrWhiteSpace($ThirdPartyPaymentsRepoFolderName))
+    If ([string]::IsNullOrWhiteSpace($FidalgoRepoFolderName))
     {
-        $ThirdPartyPaymentsRepoFolderName = 'ThirdPartyPayments.Library'
+        $FidalgoRepoFolderName = 'azure-devtest-center'
     }
     If ([string]::IsNullOrWhiteSpace($PostGitRepoFolderName))
     {
         $PostGitRepoFolderName = 'posh-git'
     }
 
-    $WalletRoot = Join-Path $ReposRoot $WalletRepoFolderName
-    $WebPaymentsFrontEnd = Join-Path $ReposRoot $WebPaymentsFrontEndRepoFolderName
-    $WebPaymentsAppRoot = Join-Path $ReposRoot $MicrosoftPayRepoFolderName
-    $TokensDataServiceRoot = Join-Path $ReposRoot $TokensDataServiceRepoFolderName
-    $PaymentFrontDoorRoot = Join-Path $ReposRoot $PaymentFrontDoorRepoFolderName
-    $MerchantManagementServiceRoot = Join-Path $ReposRoot $MerchantManagementServiceRepoFolderName
     $PowerShellCmdletsRoot = Join-Path $ReposRoot $PowerShellCmdletsRepoFolderName
-    $DevTestRoot = Join-Path $ReposRoot $DevTestRepoFolderName
     $LabsRoot = Join-Path $ReposRoot $LabsRepoFolderName
-    $ThirdPartyPaymentsLibraryRoot = Join-Path $ReposRoot $ThirdPartyPaymentsRepoFolderName
+    $FidalgoRoot = Join-Path $ReposRoot $FidalgoRepoFolderName
     $PoshGitRoot = Join-Path $ReposRoot $PostGitRepoFolderName
 
     #Load PoshGit
@@ -1088,7 +758,7 @@ If ($ReposRoot -ne $Null)
 
     # Clone the posh-git repo if it isn't already local.
     $IsPoshGitCloned = Test-Path -LiteralPath $PoshGitModule
-    If (-not ($IsPoshGitCloned) -and $GitPath -ne $Null)
+    If (-not ($IsPoshGitCloned) -and $GitAvailable)
     {
         pushd $ReposRoot
         git.exe clone 'https://github.com/dahlbyk/posh-git.git'
@@ -1111,28 +781,10 @@ If ($ReposRoot -ne $Null)
     {
         Write-Warning 'Could not find posh-git repo location.  Please resolve or ensure msbuild.exe is in your PATH.'
     }
+
+    Navigate-Fidalgo
 }
 Else
 {
     Write-Warning 'Could not locate the root of the git repos.  Repo navigation related functions will not work.'
-}
-
-#########################################################
-## Add MSBuild to the PATH
-#########################################################
-$MSBuildPath = "${Env:ProgramFiles(x86)}\Microsoft Visual Studio\2019\Enterprise\MSBuild\Current\Bin"
-
-If (-not (Test-Path -LiteralPath $MSBuildPath))
-{
-    $MSBuildPath = "${Env:ProgramFiles(x86)}\Microsoft Visual Studio\2019\Preview\MSBuild\Current\Bin"
-}
-
-If (Test-Path -LiteralPath $MSBuildPath)
-{
-    # Add msbuild to the local console PATH variable
-    $Env:Path = "$msbuildPath;$env:Path"
-}
-Else
-{
-    Write-Warning 'Could not find MSBuild binary location.  Please resolve or ensure msbuild.exe is in your PATH.'
 }
