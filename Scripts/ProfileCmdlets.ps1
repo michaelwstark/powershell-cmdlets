@@ -129,12 +129,12 @@ Function Navigate-PowershellCmdlets {
   pushd $PowerShellCmdletsRoot
 }
 
-Function Navigate-Labs {
-  pushd $LabsRoot
-}
-
 Function Navigate-Fidalgo {
   pushd $FidalgoRoot
+}
+
+Function Navigate-MXC {
+  pushd $MXCRoot
 }
 
 Function Navigate-Root {
@@ -143,11 +143,11 @@ Function Navigate-Root {
   If ($Location.Path.StartsWith($PowerShellCmdletsRoot, "CurrentCultureIgnoreCase")) {
     Navigate-PowerShellCmdlets
   }
-  ElseIf ($Location.Path.StartsWith($LabsRoot, "CurrentCultureIgnoreCase")) {
-    Navigate-Labs
-  }
   ElseIf ($Location.Path.StartsWith($FidalgoRoot, "CurrentCultureIgnoreCase")) {
     Navigate-Fidalgo
+  }
+  ElseIf ($Location.Path.StartsWith($MXCRoot, "CurrentCultureIgnoreCase")) {
+    Navigate-MXC
   }
   Else {
     Throw "Current Location is Not Under a Known Repo."
@@ -160,11 +160,11 @@ Function Find-Repo {
   If ($Location.Path.StartsWith($PowerShellCmdletsRoot, "CurrentCultureIgnoreCase")) {
     Return 'powershell-cmdlets'
   }
-  ElseIf ($Location.Path.StartsWith($LabsRoot, "CurrentCultureIgnoreCase")) {
-    Return 'Labs'
-  }
   ElseIf ($Location.Path.StartsWith($FidalgoRoot, "CurrentCultureIgnoreCase")) {
     Return 'Fidalgo'
+  }
+  ElseIf ($Location.Path.StartsWith($MXCRoot, "CurrentCultureIgnoreCase")) {
+    Return 'MXC'
   }
   Else {
     Throw "Current Location is Not Under a Known Repo."
@@ -382,8 +382,8 @@ Function NuGet-Push {
     [ValidateNotNullOrEmpty()]
     [string]$Package,
 
-    [ValidateSet('UniversalStore', 'Payments', 'PaymentsPrivate', 'LabServices', 'MSENG')]
-    [string]$Feed = 'LabServices'
+    [ValidateSet('UniversalStore', 'Payments', 'PaymentsPrivate', 'MSENG')]
+    [string]$Feed = 'MSENG'
   )
 
   $CurrentLocation = Get-Location
@@ -399,9 +399,6 @@ Function NuGet-Push {
   }
 
   Switch ($Feed) {
-    'LabServices' {
-      $Url = 'https://devdiv.pkgs.visualstudio.com/_packaging/azure-lab-services/nuget/v3/index.json'
-    }
     'MSENG' {
       $Url = 'https://mseng.pkgs.visualstudio.com/_packaging/DevTestLab/nuget/v3/index.json'
     }
@@ -592,8 +589,8 @@ Set-Alias Commit Commit-Change
 Set-Alias Push Push-Repository
 Set-Alias Pull Pull-Repository
 Set-Alias Scripts Navigate-PowerShellCmdlets
-Set-Alias Labs Navigate-Labs
 Set-Alias Fidalgo Navigate-Fidalgo
+Set-Alias MXC Navigate-MXC
 Set-Alias Root Navigate-Root
 Set-Alias NuGetPush NuGet-Push
 Set-Alias Deploy Deploy-Service
@@ -647,19 +644,19 @@ If ($ReposRoot -ne $Null) {
   If ([string]::IsNullOrWhiteSpace($PowerShellCmdletsRepoFolderName)) {
     $PowerShellCmdletsRepoFolderName = 'powershell-cmdlets'
   }
-  If ([string]::IsNullOrWhiteSpace($LabsRepoFolderName)) {
-    $LabsRepoFolderName = 'azure-lab-services'
-  }
   If ([string]::IsNullOrWhiteSpace($FidalgoRepoFolderName)) {
     $FidalgoRepoFolderName = 'azure-devtest-center'
+  }
+  If ([string]::IsNullOrWhiteSpace($MXCRepoFolderName)) {
+    $MXCRepoFolderName = 'mxc'
   }
   If ([string]::IsNullOrWhiteSpace($PostGitRepoFolderName)) {
     $PostGitRepoFolderName = 'posh-git'
   }
 
   $PowerShellCmdletsRoot = Join-Path $ReposRoot $PowerShellCmdletsRepoFolderName
-  $LabsRoot = Join-Path $ReposRoot $LabsRepoFolderName
   $FidalgoRoot = Join-Path $ReposRoot $FidalgoRepoFolderName
+  $MXCRoot = Join-Path $ReposRoot $MXCRepoFolderName
   $PoshGitRoot = Join-Path $ReposRoot $PostGitRepoFolderName
 
   #Load PoshGit
