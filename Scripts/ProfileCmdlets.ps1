@@ -137,6 +137,10 @@ Function Navigate-MXC {
   pushd $MXCRoot
 }
 
+Function Navigate-Lithium {
+  pushd $LithiumRoot
+}
+
 Function Navigate-Root {
   $Location = Get-Location
 
@@ -148,6 +152,9 @@ Function Navigate-Root {
   }
   ElseIf ($Location.Path.StartsWith($MXCRoot, "CurrentCultureIgnoreCase")) {
     Navigate-MXC
+  }
+  ElseIf ($Location.Path.StartsWith($LithiumRoot, "CurrentCultureIgnoreCase")) {
+    Navigate-Lithium
   }
   Else {
     Throw "Current Location is Not Under a Known Repo."
@@ -165,6 +172,9 @@ Function Find-Repo {
   }
   ElseIf ($Location.Path.StartsWith($MXCRoot, "CurrentCultureIgnoreCase")) {
     Return 'MXC'
+  }
+  ElseIf ($Location.Path.StartsWith($LithiumRoot, "CurrentCultureIgnoreCase")) {
+    Return 'W365-Sandbox'
   }
   Else {
     Throw "Current Location is Not Under a Known Repo."
@@ -591,6 +601,7 @@ Set-Alias Pull Pull-Repository
 Set-Alias Scripts Navigate-PowerShellCmdlets
 Set-Alias Fidalgo Navigate-Fidalgo
 Set-Alias MXC Navigate-MXC
+Set-Alias Lithium Navigate-Lithium
 Set-Alias Root Navigate-Root
 Set-Alias NuGetPush NuGet-Push
 Set-Alias Deploy Deploy-Service
@@ -650,14 +661,18 @@ If ($ReposRoot -ne $Null) {
   If ([string]::IsNullOrWhiteSpace($MXCRepoFolderName)) {
     $MXCRepoFolderName = 'mxc'
   }
-  If ([string]::IsNullOrWhiteSpace($PostGitRepoFolderName)) {
-    $PostGitRepoFolderName = 'posh-git'
+  If ([string]::IsNullOrWhiteSpace($LithiumRepoFolderName)) {
+    $LithiumRepoFolderName = 'W365-Sandbox'
+  }
+  If ([string]::IsNullOrWhiteSpace($PoshGitRepoFolderName)) {
+    $PoshGitRepoFolderName = 'posh-git'
   }
 
   $PowerShellCmdletsRoot = Join-Path $ReposRoot $PowerShellCmdletsRepoFolderName
   $FidalgoRoot = Join-Path $ReposRoot $FidalgoRepoFolderName
   $MXCRoot = Join-Path $ReposRoot $MXCRepoFolderName
-  $PoshGitRoot = Join-Path $ReposRoot $PostGitRepoFolderName
+  $LithiumRoot = Join-Path $ReposRoot $LithiumRepoFolderName
+  $PoshGitRoot = Join-Path $ReposRoot $PoshGitRepoFolderName
 
   #Load PoshGit
   $PoshGitModule = Join-Path $PoshGitRoot src
