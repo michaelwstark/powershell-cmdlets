@@ -8,18 +8,19 @@
 .PARAMETER TextToEncrypt
     The text to encrypt with the specified certificate.
 .EXAMPLE
-   ./Encrypt-Text.ps1 -Thumbprint '77f44649324189f915e249f235168df48578510d' -Text 'jBtPTcKFWvrO0fWKkKRHAlPBPmev/9HbacS7FxrBVxE='
+   ./Encrypt-Text.ps1 -CertificateThumbprint '77f44649324189f915e249f235168df48578510d' -TextToEncrypt 'jBtPTcKFWvrO0fWKkKRHAlPBPmev/9HbacS7FxrBVxE='
 #>
 
 [CmdletBinding()]
-Param(
-    [Parameter(Mandatory=$True)]
+Param
+(
+    [Parameter(Mandatory = $True)]
     [ValidateNotNullOrEmpty()]
-    [string]$CertificateThumbprint,
+    [string] $CertificateThumbprint,
 
-    [Parameter(Mandatory=$True)]
+    [Parameter(Mandatory = $True)]
     [ValidateNotNullOrEmpty()]
-    [string]$TextToEncrypt
+    [string] $TextToEncrypt
 )
 
 Write-Host
@@ -39,7 +40,8 @@ $Certificate = Get-Item "cert:\LocalMachine\My\$CertificateThumbprint" -ErrorAct
 
 Write-Host 'Encrypting Text...'
 $TextBytes = [System.Text.Encoding]::UTF8.GetBytes($TextToEncrypt)
-$EncryptedBlob = $Certificate.PublicKey.Key.Encrypt($TextBytes, $True)
+$RSAPublicKey = $Certificate.GetRSAPublicKey()
+$EncryptedBlob = $RSAPublicKey.Encrypt($TextBytes, [System.Security.Cryptography.RSAEncryptionPadding]::OaepSHA1)
 $EncryptedText = [System.Convert]::ToBase64String($EncryptedBlob)
 
 Write-Host

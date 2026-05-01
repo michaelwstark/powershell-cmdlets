@@ -1,13 +1,12 @@
-
 <#
 .Synopsis
-   This script can be used to automate testing of TLS version support
+   This script can be used to automate testing of TLS version support.
 .DESCRIPTION
-   This script will take in a list of servers line delimited file and test each one for TLS support.
+   This script takes a line-delimited file of hostnames and tests each one for which TLS versions the server accepts.
 
-   Author: Michael Stark (mstark) - Universal Store - Store Core - Payments
+   Author: Michael Stark (mstark)
 .PARAMETER DependencyManifest
-    A file which lists the set of origins to test
+    A file which lists the set of hosts to test, one per line.
 .EXAMPLE
    ./Test-TlsSupport.ps1 -DependencyManifest MyDependencies.txt
 #>
@@ -32,11 +31,10 @@ Class HostTlsSupportResult
 {
     [string]           $HostName
     [UInt16]           $Port
-    [ProtocolStatus]   $Ssl2  = [ProtocolStatus]::HostDidNotRespond
-    [ProtocolStatus]   $Ssl3  = [ProtocolStatus]::HostDidNotRespond
     [ProtocolStatus]   $Tls10 = [ProtocolStatus]::HostDidNotRespond
     [ProtocolStatus]   $Tls11 = [ProtocolStatus]::HostDidNotRespond
     [ProtocolStatus]   $Tls12 = [ProtocolStatus]::HostDidNotRespond
+    [ProtocolStatus]   $Tls13 = [ProtocolStatus]::HostDidNotRespond
 }
 
 Function Get-Color
@@ -50,19 +48,19 @@ Function Get-Color
     {
         DnsLookupFailed
         {
-            Return "Yellow"
+            Return 'Yellow'
         }
         HostDidNotRespond
         {
-            Return "Yellow"
+            Return 'Yellow'
         }
         Supported
         {
-            Return "Green"
+            Return 'Green'
         }
         NotSupported
         {
-            Return "Red"
+            Return 'Red'
         }
     }
 }
@@ -83,11 +81,10 @@ Function Test-ServerTlsSupport
     $DnsRecords = @( Resolve-DnsName -Name $HostName -ErrorAction SilentlyContinue )
     If (($DnsRecords -eq $Null) -or $DnsRecords.Count -eq 0)
     {
-        $Result.Ssl2 = [ProtocolStatus]::DnsLookupFailed
-        $Result.Ssl3 = [ProtocolStatus]::DnsLookupFailed
         $Result.Tls10 = [ProtocolStatus]::DnsLookupFailed
         $Result.Tls11 = [ProtocolStatus]::DnsLookupFailed
         $Result.Tls12 = [ProtocolStatus]::DnsLookupFailed
+        $Result.Tls13 = [ProtocolStatus]::DnsLookupFailed
 
         Return $Result
     }
@@ -100,8 +97,8 @@ Function Test-ServerTlsSupport
         $TcpClient.ReceiveTimeout = 1000
         $TcpClient.Connect($HostName, $Port)
 
-        $TlsVersions = @( 'ssl2', 'ssl3', 'tls', 'tls11', 'tls12' )
-        
+        $TlsVersions = @( 'tls', 'tls11', 'tls12', 'tls13' )
+
         ForEach ($TlsVersion in $TlsVersions)
         {
             Try
@@ -115,7 +112,7 @@ Function Test-ServerTlsSupport
                 $SslStream.WriteTimeout = 1000
 
                 # (Host, ClientCertificates, SslProtocols, CheckCertificateRevocation)
-                $SslStream.AuthenticateAsClient($HostName, $null, $TlsVersion, $False)
+                $SslStream.AuthenticateAsClient($HostName, $Null, $TlsVersion, $False)
                 $Status = [ProtocolStatus]::Supported
             }
             Catch
@@ -124,20 +121,12 @@ Function Test-ServerTlsSupport
             }
             Finally
             {
-                If($TcpClient -ne $Null) { $TcpClient.Dispose() }
-                If($SslStream -ne $Null) { $SslStream.Dispose() }
+                If ($TcpClient -ne $Null) { $TcpClient.Dispose() }
+                If ($SslStream -ne $Null) { $SslStream.Dispose() }
             }
 
             Switch ($TlsVersion)
             {
-                'ssl2'
-                {
-                    $Result.Ssl2 = $Status
-                }
-                'ssl3'
-                {
-                    $Result.Ssl3 = $Status
-                }
                 'tls'
                 {
                     $Result.Tls10 = $Status
@@ -150,21 +139,24 @@ Function Test-ServerTlsSupport
                 {
                     $Result.Tls12 = $Status
                 }
+                'tls13'
+                {
+                    $Result.Tls13 = $Status
+                }
             }
         }
     }
     Catch
     {
-        $Result.Ssl2 = [ProtocolStatus]::HostDidNotRespond
-        $Result.Ssl3 = [ProtocolStatus]::HostDidNotRespond
         $Result.Tls10 = [ProtocolStatus]::HostDidNotRespond
         $Result.Tls11 = [ProtocolStatus]::HostDidNotRespond
         $Result.Tls12 = [ProtocolStatus]::HostDidNotRespond
+        $Result.Tls13 = [ProtocolStatus]::HostDidNotRespond
     }
     Finally
     {
-        If($TcpClient -ne $Null) { $TcpClient.Dispose() }
-        If($SslStream -ne $Null) { $SslStream.Dispose() }
+        If ($TcpClient -ne $Null) { $TcpClient.Dispose() }
+        If ($SslStream -ne $Null) { $SslStream.Dispose() }
     }
 
     Return $Result
@@ -196,12 +188,6 @@ ForEach ($ServiceHost in $ServiceHosts)
     Write-Host "** $($TlsSupport.HostName)"
     Write-Host '*****************************************************************************'
 
-    Write-Host -NoNewLine -Object 'SSL 2:   '
-    Write-Host $TlsSupport.Ssl2 -ForegroundColor $(Get-Color -Status $TlsSupport.Ssl2)
-
-    Write-Host -NoNewLine -Object 'SSL 3:   '
-    Write-Host $TlsSupport.Ssl3 -ForegroundColor $(Get-Color -Status $TlsSupport.Ssl3)
-
     Write-Host -NoNewLine -Object 'TLS 1.0: '
     Write-Host $TlsSupport.Tls10 -ForegroundColor $(Get-Color -Status $TlsSupport.Tls10)
 
@@ -210,4 +196,7 @@ ForEach ($ServiceHost in $ServiceHosts)
 
     Write-Host -NoNewLine -Object 'TLS 1.2: '
     Write-Host $TlsSupport.Tls12 -ForegroundColor $(Get-Color -Status $TlsSupport.Tls12)
+
+    Write-Host -NoNewLine -Object 'TLS 1.3: '
+    Write-Host $TlsSupport.Tls13 -ForegroundColor $(Get-Color -Status $TlsSupport.Tls13)
 }

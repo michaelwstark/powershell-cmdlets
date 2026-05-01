@@ -1,13 +1,16 @@
-
 <#
 .Synopsis
    This script will scan for any *.cer files and check their expiration in a file system.
 .DESCRIPTION
-   This script will take in a literal path and use it to scan and verify the exiration of *.cer files under it.
+   This script will take in a literal path and use it to scan and verify the expiration of *.cer files under it.
 
-   Author: Michael Stark (mstark) - Universal Store - Store Core - Payments
-.PARAMETER DependencyManifest
-    A file which lists the set of origins to test
+   Author: Michael Stark (mstark)
+.PARAMETER LiteralPath
+    The root path to scan recursively for *.cer files.  Files under \bin\ or \obj\ are skipped.
+.PARAMETER NearExpirationLimitInDays
+    Threshold in days under which a certificate is reported as near-expiration (default 45).
+.PARAMETER ReportAll
+    When set, also report certificates that are not near expiration.
 .EXAMPLE
    ./Test-CertExpiration.ps1 -LiteralPath E:\Repos
 #>
@@ -22,7 +25,7 @@ Param
     [ValidateRange(1, 365)]
     [int] $NearExpirationLimitInDays = 45,
 
-    [switch] $ReportAll = $false
+    [switch] $ReportAll
 )
 
 Enum ExpirationStatus
@@ -43,15 +46,15 @@ Function Get-Color
     {
         NearExpiration
         {
-            Return "Yellow"
+            Return 'Yellow'
         }
         NotNearExpiration
         {
-            Return "Green"
+            Return 'Green'
         }
         Expired
         {
-            Return "Red"
+            Return 'Red'
         }
     }
 }
@@ -77,7 +80,7 @@ If (-not (Test-Path -LiteralPath $LiteralPath))
     Exit 1
 }
 
-$CertificateFiles = Get-ChildItem -LiteralPath $LiteralPath -Filter *.cer -Recurse
+$CertificateFiles = Get-ChildItem -LiteralPath $LiteralPath -Filter '*.cer' -Recurse
 $CertificateFiles = $CertificateFiles | Where-Object { -not ($_.FullName.Contains('\bin\') -or $_.FullName.Contains('\obj\')) }
 
 ForEach ($CertificateFile in $CertificateFiles)
@@ -85,16 +88,16 @@ ForEach ($CertificateFile in $CertificateFiles)
     $DaysUntilExpiration = Get-DaysUntilExpiration -CertificatePath $CertificateFile.FullName
 
     $Status = [ExpirationStatus]::NotNearExpiration
-    If (0 -ge $DaysUntilExpiration)
+    If ($DaysUntilExpiration -le 0)
     {
         $Status = [ExpirationStatus]::Expired
     }
-    ElseIf ($NearExpirationLimitInDays -ge $DaysUntilExpiration)
+    ElseIf ($DaysUntilExpiration -le $NearExpirationLimitInDays)
     {
         $Status = [ExpirationStatus]::NearExpiration
     }
 
-    If((-not $ReportAll) -and $Status -eq [ExpirationStatus]::NotNearExpiration)
+    If ((-not $ReportAll) -and $Status -eq [ExpirationStatus]::NotNearExpiration)
     {
         Continue
     }

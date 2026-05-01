@@ -1,52 +1,25 @@
 <#
 .Synopsis
-   This is a set of PowerShell cmdlets for common functions when developing source code on the UST Payments team.
+   A set of PowerShell cmdlets for common day-to-day source-control and dev tasks.
 .DESCRIPTION
-   Some interesting or otherwise helpful cmdlets for issuing tasks.  Feel free to take parts or the whole.
+   Helper cmdlets and aliases for working across multiple repos.  Feel free to take parts or the whole.
 
-   You can add the following lines into your Microsoft.PowerShell_profile.ps1 file to load these cmdlets whenever
-   you open a PowerShell Environment.  In addition, you can add it to NuGet_profile.ps1 to get the cmdlets to load
-   in the Visual Studio Package Manager console.  Both of these files should be created under your
-   'Documents\WindowsPowershell' folder.  Samples of these two files can be found next to this file in source control.
+   Load via your PowerShell profile, e.g.:
 
-   $ProfileScriptPath = Join-Path 'E:\Repos\ThirdPartyPayments.Library\Product\Scripts' ProfileCmdlets.ps1
-   . $ProfileScriptPath
+     $ProfileScriptPath = Join-Path $ReposRoot 'powershell-cmdlets\Scripts\ProfileCmdlets.ps1'
+     . $ProfileScriptPath
 
-   This file assumes that you have the posh-git repo locally under your 'Repos' folder.  You can clone it by
-   running the following command from the Repos folder:
+   Optional dependencies:
+     - posh-git (auto-cloned under your 'Repos' folder if missing)
+     - GitHub CLI (gh) for New-PullRequest against GitHub repos
+     - Azure CLI with the azure-devops extension for New-PullRequest against Azure DevOps repos
 
-   git clone https://github.com/dahlbyk/posh-git.git
-
-   Author: Michael Stark (mstark) - Universal Store - Store Core - Payments
+   Author: Michael Stark (mstark)
 #>
 
 #########################################################
 ## Helper Cmdlets
 #########################################################
-
-Class PullRequest {
-  [string] $sourceRefName
-  [string] $targetRefName
-  [string] $title
-  [string] $description
-}
-
-Class IdentityLookupOptions {
-  [int] $MinResults
-  [int] $MaxResults
-}
-
-Class IdentityLookupRequest {
-  [string]                $query
-  [string[]]              $identityTypes
-  [string[]]              $operationScopes
-  [string[]]              $properties
-  [IdentityLookupOptions] $options
-}
-
-Class AddReviewerRequest {
-  [int] $vote
-}
 
 Function Test-AbsolutePath {
   Param
@@ -110,75 +83,45 @@ Function Merge-Branch {
 Function Prune-Branches {
   Param
   (
-    [ValidateSet($false, $true)]
-    [switch]$Destructive = $false
+    [switch] $Destructive
   )
 
-  git.exe checkout master
+  git.exe checkout (Get-DefaultBranch)
   git.exe fetch -p
 
-  If ($Destructive -eq $true) {
-    git.exe branch --list --format "%(if:equals=[gone])%(upstream:track)%(then)%(refname:short)%(end)" | where { $_ -ne "" } | foreach { git.exe branch -D $_ }
+  $GoneBranches = git.exe branch --list --format '%(if:equals=[gone])%(upstream:track)%(then)%(refname:short)%(end)' | Where-Object { $_ -ne '' }
+
+  If ($Destructive) {
+    $GoneBranches | ForEach-Object { git.exe branch -D $_ }
   }
   Else {
-    git.exe branch --list --format "%(if:equals=[gone])%(upstream:track)%(then)%(refname:short)%(end)" | where { $_ -ne "" } | foreach { git.exe branch -d $_ }
+    $GoneBranches | ForEach-Object { git.exe branch -d $_ }
   }
-}
-
-Function Navigate-PowershellCmdlets {
-  pushd $PowerShellCmdletsRoot
-}
-
-Function Navigate-Fidalgo {
-  pushd $FidalgoRoot
-}
-
-Function Navigate-MXC {
-  pushd $MXCRoot
-}
-
-Function Navigate-Lithium {
-  pushd $LithiumRoot
 }
 
 Function Navigate-Root {
   $Location = Get-Location
 
-  If ($Location.Path.StartsWith($PowerShellCmdletsRoot, "CurrentCultureIgnoreCase")) {
-    Navigate-PowerShellCmdlets
+  ForEach ($Entry in $Global:RepoRoots.GetEnumerator()) {
+    If ($Location.Path.StartsWith($Entry.Value.Path, 'CurrentCultureIgnoreCase')) {
+      pushd $Entry.Value.Path
+      Return
+    }
   }
-  ElseIf ($Location.Path.StartsWith($FidalgoRoot, "CurrentCultureIgnoreCase")) {
-    Navigate-Fidalgo
-  }
-  ElseIf ($Location.Path.StartsWith($MXCRoot, "CurrentCultureIgnoreCase")) {
-    Navigate-MXC
-  }
-  ElseIf ($Location.Path.StartsWith($LithiumRoot, "CurrentCultureIgnoreCase")) {
-    Navigate-Lithium
-  }
-  Else {
-    Throw "Current Location is Not Under a Known Repo."
-  }
+
+  Throw 'Current Location is Not Under a Known Repo.'
 }
 
 Function Find-Repo {
   $Location = Get-Location
 
-  If ($Location.Path.StartsWith($PowerShellCmdletsRoot, "CurrentCultureIgnoreCase")) {
-    Return 'powershell-cmdlets'
+  ForEach ($Entry in $Global:RepoRoots.GetEnumerator()) {
+    If ($Location.Path.StartsWith($Entry.Value.Path, 'CurrentCultureIgnoreCase')) {
+      Return $Entry.Value.RepoName
+    }
   }
-  ElseIf ($Location.Path.StartsWith($FidalgoRoot, "CurrentCultureIgnoreCase")) {
-    Return 'Fidalgo'
-  }
-  ElseIf ($Location.Path.StartsWith($MXCRoot, "CurrentCultureIgnoreCase")) {
-    Return 'MXC'
-  }
-  ElseIf ($Location.Path.StartsWith($LithiumRoot, "CurrentCultureIgnoreCase")) {
-    Return 'W365-Sandbox'
-  }
-  Else {
-    Throw "Current Location is Not Under a Known Repo."
-  }
+
+  Throw 'Current Location is Not Under a Known Repo.'
 }
 
 Function Navigate-Product {
@@ -208,74 +151,53 @@ Function Pull-Repository {
   git.exe pull
 }
 
-Function Login-VstsAccount {
-  # TODO: We should probably find a better place to load these from -- no?
-  Load-Assembly -AssemblyPath "$Env:ProgramFiles\Git\mingw64\libexec\git-core\Microsoft.IdentityModel.Clients.ActiveDirectory.dll"
-  Load-Assembly -AssemblyPath "$Env:ProgramFiles\Git\mingw64\libexec\git-core\Microsoft.IdentityModel.Clients.ActiveDirectory.Platform.dll"
-
-  [Microsoft.IdentityModel.Clients.ActiveDirectory.AuthenticationContext] $Context = New-Object -TypeName Microsoft.IdentityModel.Clients.ActiveDirectory.AuthenticationContext('https://login.microsoftonline.com/common') -ErrorAction Stop
-
-  [string] $ResourceId = '499b84ac-1321-427f-aa17-267ca6975798'
-  [string] $ClientId = '872cd9fa-d31f-45e0-9eab-6e460a02d1f1'
-  [System.Uri] $ReplyUri = New-Object -TypeName System.Uri('urn:ietf:wg:oauth:2.0:oob')
-  [Microsoft.IdentityModel.Clients.ActiveDirectory.IPlatformParameters] $PlatformParameters = New-Object -TypeName Microsoft.IdentityModel.Clients.ActiveDirectory.PlatformParameters([Microsoft.IdentityModel.Clients.ActiveDirectory.PromptBehavior]::Auto)
-  $Action = $Context.AcquireTokenAsync($ResourceId, $ClientId, $ReplyUri, $PlatformParameters)
-  $Global:VstsAccessToken = $Action.Result
+Function Get-DefaultBranch {
+  $DefaultRef = git.exe symbolic-ref refs/remotes/origin/HEAD 2>$Null
+  If ($DefaultRef) {
+    Return ($DefaultRef -replace '^refs/remotes/origin/', '')
+  }
+  Return 'main'
 }
 
-Function Find-VstsUserByAlias {
-  Param
-  (
-    [Parameter(Mandatory = $True)]
-    [ValidateNotNullOrEmpty()]
-    [string] $Alias
-  )
-
-  Login-VstsAccount
-
-  $UserQuery = [IdentityLookupRequest]::new()
-  $UserQuery.query = "$Alias@"
-  $UserQuery.identityTypes = @( 'user' )
-  $UserQuery.operationScopes = @( 'ims' )
-  $UserQuery.properties = @( 'SamAccountName', 'SamAccountName' )
-
-  # We should never get back more than one with the above query, but allow two so we can error if there is an edge case somewhere
-  $UserQuery.options = [IdentityLookupOptions]::new()
-  $UserQuery.options.MinResults = 2
-  $UserQuery.options.MaxResults = 2
-
-
-  $IdentityLookupUrl = 'https://microsoft.visualstudio.com/_apis/IdentityPicker/Identities?api-version=3.0-preview.1'
-  $Authorization = "$($Global:VstsAccessToken.AccessTokenType) $($Global:VstsAccessToken.AccessToken)"
-  $Headers = @{ Authorization = $Authorization }
-  $Payload = ConvertTo-Json $UserQuery
-
-  $Response = Invoke-WebRequest -Uri $IdentityLookupUrl -Headers $Headers -Method Post -ContentType 'application/json' -Body $Payload
-
-  If ($Response.StatusCode -ne 200) {
-    Write-Host
-    Write-Host "StatusCode: $($Response.StatusCode)"
-    Write-Host 'Something happened.  Figure it out.  I can''t be bothered.'
-    Write-Host
-    Write-Host 'Sad Times.'
+Function Get-GitRemoteHost {
+  $RemoteUrl = git.exe remote get-url origin 2>$Null
+  If ([string]::IsNullOrWhiteSpace($RemoteUrl)) {
     Return $Null
   }
 
-  $IdentityContent = ConvertFrom-Json $Response.Content
+  If ($RemoteUrl -match 'github\.com') {
+    Return 'github'
+  }
 
-  If ($IdentityContent.results.identities.Count -eq 0) {
+  If ($RemoteUrl -match 'dev\.azure\.com|visualstudio\.com') {
+    Return 'azuredevops'
+  }
+
+  Return $Null
+}
+
+Function Get-AzureDevOpsOrg {
+  $RemoteUrl = git.exe remote get-url origin 2>$Null
+  If ([string]::IsNullOrWhiteSpace($RemoteUrl)) {
     Return $Null
   }
 
-  If ($IdentityContent.results.identities.Count -gt 1) {
-    Write-Host
-    Write-Host 'Multiple users returned.  This shouldn''t happen.  The end times are near.'
-    Write-Host
-    Write-Host 'Sad Times.'
-    Return $Null
+  # https://[user@]dev.azure.com/{org}/...
+  If ($RemoteUrl -match 'https://(?:[^/@]+@)?dev\.azure\.com/([^/]+)/') {
+    Return $Matches[1]
   }
 
-  Return $IdentityContent.results.identities[0]
+  # https://[user@]{org}.visualstudio.com/...
+  If ($RemoteUrl -match 'https://(?:[^/@]+@)?([^.]+)\.visualstudio\.com/') {
+    Return $Matches[1]
+  }
+
+  # git@ssh.dev.azure.com:v3/{org}/...
+  If ($RemoteUrl -match 'ssh\.dev\.azure\.com[:/]v3/([^/]+)/') {
+    Return $Matches[1]
+  }
+
+  Return $Null
 }
 
 Function New-PullRequest {
@@ -287,102 +209,59 @@ Function New-PullRequest {
 
     [string]   $Description,
 
-    [ValidateNotNullOrEmpty()]
-    [string]   $TargetBranch = 'master',
+    [string]   $TargetBranch,
 
-    [string[]] $AdditionalReviewers = @()
+    [string[]] $Reviewers = @()
   )
-
-  Login-VstsAccount
-
-  $Repo = Find-Repo
-  Write-Host "Repo: $Repo"
-  $Branch = $Global:GitStatus.Branch
-  Write-Host "Branch: $Branch"
 
   If ([string]::IsNullOrWhiteSpace($Description)) {
     $Description = $Title
   }
 
-  $PullRequest = [PullRequest]::new()
-  $PullRequest.sourceRefName = "refs/heads/$Branch"
-  $PullRequest.targetRefName = "refs/heads/$TargetBranch"
-  $PullRequest.title = $Title
-  $PullRequest.description = $Description
-
-  $Url = "https://microsoft.visualstudio.com/DefaultCollection/Universal%20Store/_apis/git/repositories/$Repo/pullRequests?api-version=3.0"
-  Write-Host "Url: $Url"
-
-  $Authorization = "$($Global:VstsAccessToken.AccessTokenType) $($Global:VstsAccessToken.AccessToken)"
-  $Headers = @{ Authorization = $Authorization }
-  $Payload = ConvertTo-Json $PullRequest
-
-  Write-Host "Creating Pull Request..."
-  $Response = Invoke-WebRequest -Uri $Url -Headers $Headers -Method Post -ContentType 'application/json' -Body $Payload
-  $Response
-
-  If ($Response.StatusCode -ne 201) {
-    Write-Host
-    Write-Host 'Something happened.  Figure it out.  I can''t be bothered.'
-    Write-Host
-    Write-Host 'Sad Times.'
-    Return
+  If ([string]::IsNullOrWhiteSpace($TargetBranch)) {
+    $TargetBranch = Get-DefaultBranch
   }
 
-  $PullRequestResponse = ConvertFrom-Json $Response.Content
-  $PullRequestId = $PullRequestResponse.pullRequestId
-
-  # Add some additional reviewers
-  If ($AdditionalReviewers.Count -gt 0) {
-    Write-Host "Adding additional reviewers..."
-    ForEach ($Reviewer in $AdditionalReviewers) {
-      Add-PullRequestReviewer -PullRequestId $PullRequestId -Alias $Reviewer
+  Switch (Get-GitRemoteHost) {
+    'github' {
+      If (-not (Get-Command 'gh' -ErrorAction SilentlyContinue)) {
+        Write-Error 'GitHub CLI (gh) not found.  Install from https://cli.github.com.'
+        Return
+      }
+      $GhArgs = @(
+        'pr', 'create',
+        '--title', $Title,
+        '--body', $Description,
+        '--base', $TargetBranch,
+        '--web'
+      )
+      If ($Reviewers.Count -gt 0) {
+        $GhArgs += '--reviewer'
+        $GhArgs += ($Reviewers -join ',')
+      }
+      & gh @GhArgs
     }
-  }
-
-  Write-Host
-  Write-Host "Id: $PullRequestId"
-  $PullRequestUrl = "https://microsoft.visualstudio.com/Universal%20Store/_git/$Repo/pullrequest/$PullRequestId#_a=overview"
-  Write-Host "Url: $PullRequestUrl"
-  Write-Host "Opening url ..."
-  [System.Diagnostics.Process]::Start($PullRequestUrl)
-}
-
-Function Add-PullRequestReviewer {
-  Param
-  (
-    [Parameter(Mandatory = $True)]
-    [int] $PullRequestId,
-
-    [Parameter(Mandatory = $True)]
-    [ValidateNotNullOrEmpty()]
-    [string] $Alias
-  )
-
-  Login-VstsAccount
-
-  Write-Host "Adding User $Alias to Pull Request $PullRequestId..."
-
-  $VstsUser = Find-VstsUserByAlias -Alias $Alias
-
-  If ($VstsUser -eq $Null) {
-    Write-Warning "Could not locate a single user using alias '$Alias'"
-    Return
-  }
-
-  [AddReviewerRequest] $AddReviewerRequest = [AddReviewerRequest]::new()
-  $AddReviewerRequest.vote = 0
-
-  $AddReviewerUrl = "https://microsoft.visualstudio.com/DefaultCollection/Universal%20Store/_apis/git/repositories/$Repo/pullRequests/$PullRequestId/reviewers/$($VstsUser.localId)?api-version=3.0"
-  $Authorization = "$($Global:VstsAccessToken.AccessTokenType) $($Global:VstsAccessToken.AccessToken)"
-  $Headers = @{ Authorization = $Authorization }
-  $Payload = ConvertTo-Json $AddReviewerRequest
-
-  $Response = Invoke-WebRequest -Uri $AddReviewerUrl -Headers $Headers -Method Put -ContentType 'application/json' -Body $Payload
-
-  If ($Response.StatusCode -lt 200 -or $Response.StatusCode -ge 300) {
-    Write-Warning "Adding Reviewer Failed '$Alias'"
-    Write-Host $Response
+    'azuredevops' {
+      If (-not (Get-Command 'az' -ErrorAction SilentlyContinue)) {
+        Write-Error 'Azure CLI (az) not found.  Install from https://aka.ms/azcli and add the azure-devops extension: az extension add --name azure-devops'
+        Return
+      }
+      $AzArgs = @(
+        'repos', 'pr', 'create',
+        '--title', $Title,
+        '--description', $Description,
+        '--target-branch', $TargetBranch,
+        '--open'
+      )
+      If ($Reviewers.Count -gt 0) {
+        $AzArgs += '--reviewers'
+        $AzArgs += $Reviewers
+      }
+      & az @AzArgs
+    }
+    Default {
+      Write-Error 'Could not determine remote host (expected GitHub or Azure DevOps).  Run from inside a repo with a recognized origin remote.'
+    }
   }
 }
 
@@ -392,9 +271,15 @@ Function NuGet-Push {
     [ValidateNotNullOrEmpty()]
     [string]$Package,
 
-    [ValidateSet('UniversalStore', 'Payments', 'PaymentsPrivate', 'MSENG')]
-    [string]$Feed = 'MSENG'
+    [ValidateNotNullOrEmpty()]
+    [string]$Feed = 'DevTestLab'
   )
+
+  $Org = Get-AzureDevOpsOrg
+  If ([string]::IsNullOrWhiteSpace($Org)) {
+    Write-Error 'Could not determine Azure DevOps organization from git remote.  Run from inside a repo with an ADO origin remote.'
+    Return
+  }
 
   $CurrentLocation = Get-Location
   $PackageLocation = $Package
@@ -408,55 +293,25 @@ Function NuGet-Push {
     Return
   }
 
-  Switch ($Feed) {
-    'MSENG' {
-      $Url = 'https://mseng.pkgs.visualstudio.com/_packaging/DevTestLab/nuget/v3/index.json'
-    }
-    Default {
-      Write-Error 'Unrecognized feed specified.  Shouldn''t be here.'
-      Return
-    }
-  }
+  $Url = "https://pkgs.dev.azure.com/$Org/_packaging/$Feed/nuget/v3/index.json"
 
   Navigate-Root
 
-  & .\NuGet\NuGet.exe push "$PackageLocation" -Source "$Url" -ApiKey  VSTS
+  & .\NuGet\NuGet.exe push "$PackageLocation" -Source "$Url" -ApiKey VSTS
 
   popd
 }
 
-Function Load-Assembly {
-  Param
-  (
-    [string] $AssemblyPath
-  )
-
-  If (-not (Test-Path -LiteralPath $AssemblyPath)) {
-    Throw "Could not load assembly $AssemblyPath."
-  }
-
-  [System.Reflection.Assembly]::LoadFrom($AssemblyPath) | Out-Null
-}
-
 Function Reformat-Json {
-  $Location = Get-Location
-
   $JsonFiles = Get-ChildItem -Recurse '*.json'
 
-  # Load Newtonsoft Into Memory
-  If ($JsonFiles.Length -ge 1) {
-    $NewtonsoftJsonAssembly = Join-Path $PSScriptRoot 'bin\Newtonsoft.Json.dll'
-    Load-Assembly -AssemblyPath $NewtonsoftJsonAssembly
-  }
-
   ForEach ($JsonFile in $JsonFiles) {
-    Write-Host "Reformatting: $JsonFile"
+    Write-Host "Reformatting: $($JsonFile.FullName)"
 
-    $Json = Get-Content $JsonFile
-
-    $Object = [Newtonsoft.Json.JsonConvert]::DeserializeObject($Json)
-    $Json = [Newtonsoft.Json.JsonConvert]::SerializeObject($Object, [Newtonsoft.Json.Formatting]::Indented)
-    [System.IO.File]::WriteAllText($JsonFile, $Json, [System.Text.Encoding]::UTF8)
+    $Json = Get-Content -Raw -LiteralPath $JsonFile.FullName
+    $Object = ConvertFrom-Json $Json
+    $Json = ConvertTo-Json $Object -Depth 100
+    [System.IO.File]::WriteAllText($JsonFile.FullName, $Json, [System.Text.Encoding]::UTF8)
   }
 }
 
@@ -467,8 +322,8 @@ Function Kill-Edge {
     [String] $With = ''
   )
 
-  Kill-Process -Name MicrosoftEdge -With $With
-  Kill-Process -Name MicrosoftEdgeCP -With $With
+  Kill-Process -Name msedge -With $With
+  Kill-Process -Name msedgewebview2 -With $With
 }
 
 Function Kill-Process {
@@ -504,49 +359,7 @@ $BottomLine" -ForegroundColor DarkRed
   }
 }
 
-Function New-CodeReview {
-  Try {
-    Navigate-Root
-    $CurrentRepoRoot = Get-Location
-    Pop-Location
-  }
-  Catch {
-    $CurrentRepoRoot = $Null
-  }
-
-  If ($CurrentRepoRoot -eq $Null) {
-    Write-Warning 'Could not determine repo root location.  Opening CodeFlow without Customization.'
-  }
-  Else {
-    $CodeFlowSettingsPath = Join-Path $Env:LOCALAPPDATA 'CodeFlow\ClientSettings.xml'
-
-    If (Test-Path -LiteralPath $CodeFlowSettingsPath) {
-      [Xml]$CodeFlowSettings = Get-Content $CodeFlowSettingsPath
-
-      ForEach ($KeyValue in $CodeFlowSettings.ClientSettings.Preferences.KeyValueOfstringstring) {
-        If (($KeyValue.Key -eq 'Project[Universal Store].SourceControl[Git].LastPath') -or (($KeyValue.Key -eq 'Project[Universal Store].SourceControl[Git].LastServerUri'))) {
-          $KeyValue.Value = $CurrentRepoRoot.Path
-        }
-      }
-
-      $CodeFlowSettings.Save($CodeFlowSettingsPath)
-    }
-    Else {
-      Write-Warning 'Could not find CodeFlow settings file.  It has either moved, or you haven''t used CodeFlow before.'
-    }
-  }
-
-  $CodeFlowLauncerPath = Join-Path $Env:LOCALAPPDATA 'cfLauncher\BootCodeFlow.exe'
-
-  If (Test-Path -LiteralPath $CodeFlowLauncerPath) {
-    & $CodeFlowLauncerPath 'codeflow://open/?server=https%3A%2F%2Fmicrosoft.visualstudio.com%2F&host=vso'
-  }
-  Else {
-    Write-Warning 'Could not find CodeFlow launcher.  It has either moved, or you haven''t used CodeFlow before.'
-  }
-}
-
-Function  Print-Object {
+Function Print-Object {
   Param
   (
     [ValidateNotNull()]
@@ -576,8 +389,8 @@ Function Reload-Profile {
     $Profile.AllUsersCurrentHost,
     $Profile.CurrentUserAllHosts,
     $Profile.CurrentUserCurrentHost
-  ) | % {
-    If (Test-Path $_) {
+  ) | ForEach-Object {
+    If (Test-Path -LiteralPath $_) {
       Write-Verbose "Running $_"
       . $_
     }
@@ -598,47 +411,59 @@ Set-Alias Checkout Checkout-Branch
 Set-Alias Commit Commit-Change
 Set-Alias Push Push-Repository
 Set-Alias Pull Pull-Repository
-Set-Alias Scripts Navigate-PowerShellCmdlets
-Set-Alias Fidalgo Navigate-Fidalgo
-Set-Alias MXC Navigate-MXC
-Set-Alias Lithium Navigate-Lithium
 Set-Alias Root Navigate-Root
 Set-Alias NuGetPush NuGet-Push
-Set-Alias Deploy Deploy-Service
 Set-Alias Reload Reload-Profile
 Set-Alias Print Print-Object
-Set-Alias CR New-CodeReview
 Set-Alias PR New-PullRequest
-Set-Alias Package Package-Project
 
 #########################################################
 ## Environment Initialization
 #########################################################
 
 #########################################################
+## Profile-load timing instrumentation (temporary).
+## Set $ShowProfileTimings = $True in profile.ps1 (before
+## dot-sourcing this file) to print per-section timings.
+#########################################################
+$ProfileSw = If ($ShowProfileTimings) { [System.Diagnostics.Stopwatch]::StartNew() }
+$ProfileTotalSw = If ($ShowProfileTimings) { [System.Diagnostics.Stopwatch]::StartNew() }
+
+Function Write-ProfileTiming {
+  Param([string] $Section)
+
+  If ($ProfileSw) {
+    Write-Host ('  [{0,5:F0} ms] {1}' -f $ProfileSw.Elapsed.TotalMilliseconds, $Section) -ForegroundColor DarkGray
+    $ProfileSw.Restart()
+  }
+}
+
+#########################################################
 ## Test that git.exe is in the PATH.
 #########################################################
 $GitAvailable = $False
-if ((Get-Command "git.exe" -ErrorAction SilentlyContinue) -eq $Null) { 
-  Write-Warning "Could not locate git.exe.  Please resolve or ensure git.exe is in your PATH."
+If ((Get-Command 'git.exe' -ErrorAction SilentlyContinue) -eq $Null) {
+  Write-Warning 'Could not locate git.exe.  Please resolve or ensure git.exe is in your PATH.'
 }
 Else {
   $GitAvailable = $True
 }
+Write-ProfileTiming 'git.exe PATH check'
 
 #########################################################
 ## Test that dotnet.exe is in the PATH.
 #########################################################
-if ((Get-Command "dotnet.exe" -ErrorAction SilentlyContinue) -eq $Null) { 
-  Write-Warning "Could not locate dotnet.exe.  Please resolve or ensure dotnet.exe is in your PATH."
+If ((Get-Command 'dotnet.exe' -ErrorAction SilentlyContinue) -eq $Null) {
+  Write-Warning 'Could not locate dotnet.exe.  Please resolve or ensure dotnet.exe is in your PATH.'
 }
+Write-ProfileTiming 'dotnet.exe PATH check'
 
 #########################################################
 ## Initialize Repos Path and Import Posh-Git
 #########################################################
 If ($ReposRoot -eq $Null) {
   # Get the Drives on the Computer
-  $Drives = Get-PSDrive | Where-Object { $_.Provider.Name -eq "FileSystem" } | Sort-Object -Property Root
+  $Drives = Get-PSDrive | Where-Object { $_.Provider.Name -eq 'FileSystem' } | Sort-Object -Property Root
 
   # Iterate Over the Drives To See Where the 'Repos' Folder is
   ForEach ($Drive in $Drives) {
@@ -648,31 +473,68 @@ If ($ReposRoot -eq $Null) {
       Break
     }
   }
+  Write-ProfileTiming '$ReposRoot drive scan'
 }
 
 # If we found a root set our repo locations
 If ($ReposRoot -ne $Null) {
-  If ([string]::IsNullOrWhiteSpace($PowerShellCmdletsRepoFolderName)) {
-    $PowerShellCmdletsRepoFolderName = 'powershell-cmdlets'
-  }
-  If ([string]::IsNullOrWhiteSpace($FidalgoRepoFolderName)) {
-    $FidalgoRepoFolderName = 'azure-devtest-center'
-  }
-  If ([string]::IsNullOrWhiteSpace($MXCRepoFolderName)) {
-    $MXCRepoFolderName = 'mxc'
-  }
-  If ([string]::IsNullOrWhiteSpace($LithiumRepoFolderName)) {
-    $LithiumRepoFolderName = 'W365-Sandbox'
-  }
   If ([string]::IsNullOrWhiteSpace($PoshGitRepoFolderName)) {
     $PoshGitRepoFolderName = 'posh-git'
   }
 
-  $PowerShellCmdletsRoot = Join-Path $ReposRoot $PowerShellCmdletsRepoFolderName
-  $FidalgoRoot = Join-Path $ReposRoot $FidalgoRepoFolderName
-  $MXCRoot = Join-Path $ReposRoot $MXCRepoFolderName
-  $LithiumRoot = Join-Path $ReposRoot $LithiumRepoFolderName
   $PoshGitRoot = Join-Path $ReposRoot $PoshGitRepoFolderName
+
+  # Folder name -> alias/repo-name overrides for repos with custom navigation aliases.
+  # RepoName is what Find-Repo returns; treat it as the canonical repo identifier
+  # (typically the GitHub or Azure DevOps repo name, which may differ from the folder name).
+  $RepoAliasOverrides = @{
+    'powershell-cmdlets'  = @{ Alias = 'Scripts';   RepoName = 'powershell-cmdlets' }
+    'azure-devcenter'     = @{ Alias = 'devcenter'; RepoName = 'azure-devcenter' }
+    'mxc'                 = @{ Alias = 'mxc';       RepoName = 'mxc' }
+    'W365A-Sandbox'       = @{ Alias = 'lithium';   RepoName = 'W365A-Sandbox' }
+  }
+
+  $Global:RepoRoots = @{}
+
+  Get-ChildItem -Path $ReposRoot -Directory |
+    Where-Object { $_.Name -ne $PoshGitRepoFolderName } |
+    ForEach-Object {
+      $FolderName = $_.Name
+      $RepoPath   = $_.FullName
+
+      If ($RepoAliasOverrides.ContainsKey($FolderName)) {
+        $Override  = $RepoAliasOverrides[$FolderName]
+        $Alias     = $Override.Alias
+        $RepoName  = $Override.RepoName
+      } Else {
+        $Alias    = $FolderName
+        $RepoName = $FolderName
+      }
+
+      $Global:RepoRoots[$Alias] = @{ Path = $RepoPath; RepoName = $RepoName }
+
+      $ScriptBlock = { pushd $RepoPath }.GetNewClosure()
+      Set-Item -Path "function:global:Navigate-$Alias" -Value $ScriptBlock
+      Set-Alias -Name $Alias -Value "Navigate-$Alias" -Scope Global
+    }
+
+  Write-ProfileTiming 'Repo enumeration / dynamic alias creation'
+
+  $AvailableAliases = ($Global:RepoRoots.Keys | Sort-Object) -join ', '
+
+  If ([string]::IsNullOrWhiteSpace($DefaultRepo)) {
+    Write-Warning "No `$DefaultRepo set.  Set `$DefaultRepo in your profile.ps1 for a better experience.  Available repos: $AvailableAliases"
+    Set-Location $ReposRoot
+  }
+  ElseIf ($Global:RepoRoots.ContainsKey($DefaultRepo)) {
+    Set-Location $Global:RepoRoots[$DefaultRepo].Path
+  }
+  Else {
+    Write-Warning "`$DefaultRepo '$DefaultRepo' is not a known repo alias.  Available repos: $AvailableAliases"
+    Set-Location $ReposRoot
+  }
+
+  Write-ProfileTiming '$DefaultRepo Set-Location'
 
   #Load PoshGit
   $PoshGitModule = Join-Path $PoshGitRoot src
@@ -685,6 +547,7 @@ If ($ReposRoot -ne $Null) {
     git.exe clone 'https://github.com/dahlbyk/posh-git.git'
     $IsPoshGitCloned = $True
     popd
+    Write-ProfileTiming 'posh-git clone'
   }
 
   If ($IsPoshGitCloned) {
@@ -695,11 +558,16 @@ If ($ReposRoot -ne $Null) {
     If ($Env:USERNAME -eq 'mstark') {
       $GitPromptSettings.DefaultPromptSuffix = '`n$(''>'' * ($nestedPromptLevel + 1)) '
     }
+    Write-ProfileTiming 'posh-git Import-Module + prompt setup'
   }
   Else {
-    Write-Warning 'Could not find posh-git repo location.  Please resolve or ensure msbuild.exe is in your PATH.'
+    Write-Warning 'Could not find posh-git repo location.  Clone https://github.com/dahlbyk/posh-git.git into your Repos folder.'
   }
 }
 Else {
   Write-Warning 'Could not locate the root of the git repos.  Repo navigation related functions will not work.'
+}
+
+If ($ProfileTotalSw) {
+  Write-Host ('  [{0,5:F0} ms] TOTAL (ProfileCmdlets.ps1)' -f $ProfileTotalSw.Elapsed.TotalMilliseconds) -ForegroundColor Cyan
 }
