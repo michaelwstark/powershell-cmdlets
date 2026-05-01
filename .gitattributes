@@ -1,0 +1,11 @@
+# Default: treat all files as text and normalize to CRLF in the working tree.
+* text=auto eol=crlf
+
+# Windows registry files are UTF-16 LE — keep them byte-for-byte.
+*.reg binary
+
+# Common archive / executable formats.
+*.zip binary
+*.7z  binary
+*.exe binary
+*.dll binary
